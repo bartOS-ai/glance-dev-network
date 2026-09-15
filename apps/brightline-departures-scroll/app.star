@@ -51,9 +51,10 @@ STATIONS = {
 # 4x5, which is what is left when the hour has two digits).
 SHORT = {"MIA": "MIAMI", "AVE": "AVENTURA", "FTL": "LAUDERDALE",
          "BOC": "BOCA RATON", "WPB": "PALM BEACH", "ORL": "ORLANDO"}
-# Names for the chip row, next to the BRIGHTLINE chip (max 62 px).
+# Names for the chip row, next to the BRIGHTLINE chip, in 5x7 so the
+# station you are tracking reads first (max 63 px; the widest are 59).
 CHIP = {"MIAMI": "MIAMI", "AVENTURA": "AVENTURA", "FORT LAUDERDALE": "LAUDERDALE",
-        "BOCA RATON": "BOCA RATON", "WEST PALM BEACH": "W PALM BEACH", "ORLANDO": "ORLANDO"}
+        "BOCA RATON": "BOCA RATON", "WEST PALM BEACH": "PALM BEACH", "ORLANDO": "ORLANDO"}
 
 # ------------------------------------------------------------- pixel art
 # The Siemens Charger in Brightline yellow, nose to the left, 44 x 14.
@@ -304,13 +305,15 @@ def fetch_data(ctx):
 # ---------------------------------------------------------------- chrome
 def chip_row(c, d, right):
     """BRIGHTLINE chip, the station, and a right-aligned word. The chip
-    is 53 px, so the station gets 181 - right - 4 - 65 px; every CHIP
-    name fits beside a 48 px DEPARTURES."""
+    is 53 px, so the station gets 181 - right - 4 - 66 px; every CHIP
+    name fits in 5x7 beside a 48 px DEPARTURES. The station is the one
+    5x7 word in the row, in the chip's yellow, filling the chip's 7 px
+    height (y 0..6) so it reads as the sign on the platform."""
     x = tab(c, "BRIGHTLINE", BL_YELLOW, 10)
     rw = c.text_width(right, "4x5")
     c.text(right, 181, 1, font = "4x5", color = DIM, align = "right")
-    c.text(clip(c, CHIP[d["station"]], "4x5", 181 - rw - 4 - (x + 2)), x + 2, 1,
-           font = "4x5", color = INK)
+    c.text(clip(c, CHIP[d["station"]], "5x7", 181 - rw - 4 - (x + 2)), x + 2, 0,
+           font = "5x7", color = BL_YELLOW)
 
 def train_art(c, x, y, word):
     """The locomotive on its rail, the direction word beneath."""
