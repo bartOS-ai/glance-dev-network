@@ -1,7 +1,8 @@
 # Fantasy Football News
 
 NFL player news sorted the way a fantasy manager reads it, plus the waiver
-wire's hottest pickups. No key or account needed.
+wire's hottest pickups. No key or account needed. Built for scroll panels
+(192x32).
 
 ## Settings
 
@@ -13,14 +14,29 @@ wire's hottest pickups. No key or account needed.
 
 ## What the pages show
 
+Every page is framed by the club:
+
+- **Team logo** (left) - the club's pixel-art logo on black, closed off by a
+  bar in its colours.
+- **Position** (right) - the position pill over a pixel-art player in that
+  club's uniform, with helmet stripe, facemask and number: the QB cocked to
+  throw, the RB running with the ball tucked, the WR high-pointing a catch,
+  the TE blocking, the K through his kick, and the defense squared up facing
+  the offense.
+
+Between them:
+
 - **News** - one player update at a time, rotating every minute through the
   latest few, with a `1/5` counter. The player's name is the hero, the
-  headline sits under it, and a coloured pill and pixel-art icon say what kind
-  of news it is before you read a word.
+  headline sits under it, and a coloured pill says what kind of news it is
+  before you read a word. RotoWire's league-wide feed has no positions, so
+  there the news kind's icon stands in for the player, and the club is read
+  from the update itself ("in the Chiefs' 31-10 win"). An update that names no
+  club gets the NFL shield.
 - **Waiver wire** - the top three trending players, one at a time, with a
-  flame for adds or an ice cube for drops, the position pill, team, how many
-  managers added or dropped him, and `OWNED`: the percentage of Sleeper
-  leagues where he is already on a roster.
+  flame for adds or an ice cube for drops, how many managers added or dropped
+  him, and `OWNED`: the percentage of Sleeper leagues where he is already on
+  a roster.
 
 ## The pills
 
@@ -49,5 +65,5 @@ headline for those phrases.
 - The panel redraws every minute so the rotation moves; the feeds are not
   asked that often.
 - Nothing new to show is not an error: the page says `ALL QUIET` in green.
-- On the 64 panel the pills use short words: `QUES`, `DOUBT`, `IR`, `SUSP`,
-  `CLEAR`, `CUT`, `CLAIM`, `UP`, `ROLE`, `STATS`.
+- Team logos are 40x24 pixel art, one per club plus the NFL shield, shipped
+  in `assets/`.

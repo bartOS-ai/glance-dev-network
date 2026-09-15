@@ -11,22 +11,26 @@
 #   wire  Sleeper's trending adds or drops over the last 24 hours, each player
 #         looked up by id, with the share of Sleeper leagues that own him.
 #
-# DESIGN. A black ground and a pill that tells you, before you read a word,
-# what kind of news this is. Every update is sorted into one of a handful of
-# kinds - OUT and IR in red, DOUBTFUL, QUESTIONABLE and INJURY in the orange
-# and amber family, CLEARED green, SIGNED / TRADED / RELEASED / CLAIMED /
-# PROMOTED purple, BOOM orange, BUST ice, DEPTH CHART pink, STAT LINE teal,
-# plain NEWS white - and each kind has its own pixel-art icon, drawn at 2x on
-# the scroll panel: a red cross, a green check, swap arrows, a penalty flag, a
-# clipboard of Xs and Os, a flame, an ice cube, a football, a megaphone. The
-# rail wears the pill's colour so the page never contradicts itself. The
-# player's name is the hero, as big as it will go (full name, then initial +
-# last name, then last name alone, then smaller faces); the headline sits
-# under it. ESPN's own status (Out, Injured Reserve, Doubtful, Questionable)
-# always wins over the keyword read, because a player listed OUT is out
-# whatever the blurb says. The waiver page swaps the icon for a flame (adds)
-# or an ice cube (drops) and puts the numbers that decide a pickup under the
-# name: position pill, team, how many managers added him, how widely owned.
+# DESIGN. Every page is the club first. On the left, its logo - hand-drawn
+# pixel art at 40 x 24 on black - closed off by a two-tone bar in the club's
+# colours. On the right, the position: a pill (QB pink, RB teal, WR blue, TE
+# orange, K purple, DEF slate) over a pixel-art player in that club's
+# uniform, doing the job - the QB cocked to throw, the RB running with the
+# ball tucked, the WR high-pointing a catch, the TE blocking, the K through
+# his kick, the defense squared up and facing the other way. Helmets carry
+# a stripe, a facemask and an ear hole; the far arm and leg are drawn a
+# shade darker so the figures have depth. Between them, on black, the
+# player's name is the hero and the headline sits under it. A pill in the
+# chip row says what kind of news it is before you read a word - OUT and IR
+# red, DOUBTFUL, QUESTIONABLE and INJURY in the orange and amber family,
+# CLEARED green, SIGNED / TRADED / RELEASED / CLAIMED / PROMOTED purple, BOOM
+# orange, BUST ice, DEPTH CHART pink, STAT LINE teal, plain NEWS white - with
+# its own icon beside it when there is room. RotoWire carries no position,
+# so there the kind's icon takes the player's place at 2x. ESPN's own status
+# (Out, Injured Reserve, Doubtful, Questionable) always wins over the keyword
+# read, because a player listed OUT is out whatever the blurb says. The
+# waiver page puts the numbers that decide a pickup under the name: how many
+# managers added him, and how widely owned he already is.
 #
 # Frames: each page shows one story (or one player) at a time and rotates by
 # the minute, with a 1/5 counter so the rotation reads as deliberate. That
@@ -46,11 +50,26 @@ STATE_TTL = 3600
 RESEARCH_TTL = 3600
 PLAYER_TTL = 21600
 
+# ------------------------------------------------------------------ layout
+# 192 wide. Logo x 6..45 (40 x 24 at y 4), team bar x 48..49, text x
+# 53..160, player x 164..185 (22 x 24 at y 8): 6 px of edge padding each
+# side, and at least 2 px of black between zones.
+LOGO_X = 6
+LOGO_Y = 4
+BAR_X = 48
+TX = 53
+TR = 160
+TW = TR - TX + 1
+POS_X = 164
+POS_CX = 175       # centre of the player zone
+EDGE_R = 185
+
 # ----------------------------------------------------------------- palette
 INK = "#F4F7FF"
 DIM = "#6E7A94"
 OFFLINE = "#3C4043"
 GOOD = "#2FE06F"
+WHITE = "#F0F2F5"
 
 C_OUT = "#FF2D2D"      # OUT, IR          - white type
 C_DOUBT = "#FF4F1F"    # DOUBTFUL         - white type
@@ -85,12 +104,56 @@ TEAMS = {
     "SEATTLE SEAHAWKS": ["26", "SEA"], "TAMPA BAY BUCCANEERS": ["27", "TB"],
     "TENNESSEE TITANS": ["10", "TEN"], "WASHINGTON COMMANDERS": ["28", "WSH"],
 }
-# Abbreviation -> nickname, for Sleeper's team defenses ("TB" -> BUCCANEERS).
+# Abbreviation -> nickname, for Sleeper's team defenses ("TB" -> BUCCANEERS),
+# and lowercase nickname -> abbreviation, for finding the club in RotoWire.
 NICK = {TEAMS[k][1]: k.split(" ")[len(k.split(" ")) - 1] for k in TEAMS}
+NICK_TEAM = {NICK[a].lower(): a for a in NICK}
+
+# abbr -> [accent, jersey, helmet, pants]. Each club's own colours, with
+# navy, black and deep purple lifted so the uniform still reads on an LED
+# (Bears navy 0B162A -> 3F63C0, Raiders black -> silver-gray, Steelers and
+# Saints in their gold). The accent and jersey make the bar beside the logo;
+# the accent is also the helmet stripe unless it is the helmet's own colour.
+# Logos ship in assets/ as <abbr>.png, 40 x 24, plus NFL.png for news that
+# names no club.
+TEAM_STYLE = {
+    "ARI": ["#E0304F", "#E0304F", "#F0F2F5", "#F0F2F5"],
+    "ATL": ["#E8243C", "#E8243C", "#A5ACAF", "#F0F2F5"],
+    "BAL": ["#D0A52E", "#7B5CE8", "#7B5CE8", "#F0F2F5"],
+    "BUF": ["#E8203A", "#2A6BFF", "#F0F2F5", "#F0F2F5"],
+    "CAR": ["#19A6F0", "#19A6F0", "#B8BEC4", "#F0F2F5"],
+    "CHI": ["#FF5A1F", "#3F63C0", "#3F63C0", "#F0F2F5"],
+    "CIN": ["#FF6A1F", "#FF6A1F", "#FF6A1F", "#F0F2F5"],
+    "CLE": ["#FF4E10", "#9A6433", "#FF4E10", "#F0F2F5"],
+    "DAL": ["#B0B7BC", "#3D7BFF", "#B0B7BC", "#B0B7BC"],
+    "DEN": ["#FF5A14", "#FF5A14", "#3A6AB0", "#F0F2F5"],
+    "DET": ["#1C9BE8", "#1C9BE8", "#B0B7BC", "#B0B7BC"],
+    "GB": ["#FFB612", "#2E8B57", "#FFB612", "#FFB612"],
+    "HOU": ["#E8233C", "#3A5A8C", "#3A5A8C", "#F0F2F5"],
+    "IND": ["#3D86E8", "#3D86E8", "#F0F2F5", "#F0F2F5"],
+    "JAX": ["#D7A22A", "#00A5B8", "#D7A22A", "#F0F2F5"],
+    "KC": ["#FFB612", "#FF2447", "#FF2447", "#F0F2F5"],
+    "LV": ["#C4CACD", "#8A9196", "#C4CACD", "#C4CACD"],
+    "LAC": ["#FFC20E", "#2AA8F0", "#F0F2F5", "#F0F2F5"],
+    "LAR": ["#FFD100", "#2F6BFF", "#2F6BFF", "#FFD100"],
+    "MIA": ["#FC6A12", "#00C2CC", "#F0F2F5", "#F0F2F5"],
+    "MIN": ["#FFC62F", "#8F5BE8", "#8F5BE8", "#F0F2F5"],
+    "NE": ["#E8203F", "#3A5A9C", "#B0B7BC", "#B0B7BC"],
+    "NO": ["#D3BC8D", "#D3BC8D", "#D3BC8D", "#F0F2F5"],
+    "NYG": ["#E8203F", "#2A5FE0", "#2A5FE0", "#D0D4DA"],
+    "NYJ": ["#F0F2F5", "#1FA36E", "#1FA36E", "#F0F2F5"],
+    "PHI": ["#B0B7BC", "#0FA0A8", "#0FA0A8", "#F0F2F5"],
+    "PIT": ["#FFB612", "#FFB612", "#FFB612", "#F0F2F5"],
+    "SF": ["#D4B46A", "#E8201F", "#D4B46A", "#D4B46A"],
+    "SEA": ["#69BE28", "#3A5A9C", "#3A5A9C", "#F0F2F5"],
+    "TB": ["#F0263A", "#F0263A", "#8A8580", "#F0F2F5"],
+    "TEN": ["#4B92DB", "#4B92DB", "#F0F2F5", "#F0F2F5"],
+    "WSH": ["#FFB612", "#B8323A", "#B8323A", "#FFB612"],
+}
 
 # --------------------------------------------------------------- pixel art
-# Small art is drawn at 1x on the 64 panel and in the chip row; the scroll
-# hero draws the big art (or the small art when there is none) at 2x.
+# Small art is drawn at 1x in the chip row; the player zone draws the big
+# art (or the small art when there is none) at 2x.
 BALL = """
 ...DDDDD...
 .DBBBBBBBD.
@@ -207,7 +270,170 @@ ICONS = {
     "MEGA": [MEGA, {"S": DIM}, MEGA_BIG],
 }
 
-# kind -> [pill word, short pill word for 64, colour, icon]
+# The players: 22 x 24 at 1x, in the club's uniform. H helmet, T helmet
+# stripe, M facemask, J jersey (j the far arm and side, a shade darker),
+# N number, G gloves, P pants (p far leg), S socks (s far sock), K cleats,
+# B ball, L laces. The offense faces right, into the page; the defense faces
+# left, at them.
+QB_ART = """
+.BBB..................
+BBLBB.................
+BBLBB.....HHHHH.......
+.BBBG....HHTTTHH......
+....GJ..HHHHHHHHH.....
+.....jJ.HHHHHHHMMM....
+......jJHHH.HHHM.M....
+.......jJHHHHHHMMM....
+........jJHHHH........
+........JJJJJJJJJJJGG.
+.......jJJJJJJJJJJJGG.
+.......jJJNNNJJJ......
+.......jJJN.NJJ.......
+.......jJJNNNJJ.......
+........jJJJJJJ.......
+........pPPPPPPP......
+........ppPP.PPPP.....
+.......pppP...PPPP....
+......ppp......PPPP...
+......sss.......SSS...
+.....sss.........SSS..
+.....sss..........SSS.
+....KKKK..........KKKK
+...KKKK............KKK
+"""
+RB_ART = """
+..............HHHHH...
+.............HHTTTHH..
+............HHHHHHHHH.
+............HHHHHHHMMM
+............HHH.HHHM.M
+.............HHHHHHMMM
+..........JJJJHHHH....
+........jJJJJJJJJJ....
+.......jjJJJJJJJBBB...
+......jj.JJJJJJBBLBB..
+.....GG..JJNNNJBBLBB..
+.........JJN.NJJBBB...
+.........JJNNNJJGG....
+..........JJJJJJ......
+..........pPPPPPP.....
+.........ppPPPPPPP....
+........ppp...PPPP....
+.......ppp.....PPPP...
+......sss.......SSS...
+.....sss.........SSS..
+....sss...........SS..
+...KKK............KKK.
+..KKK..............KKK
+......................
+"""
+WR_ART = """
+...............BBB....
+..............BBLBB...
+.............BBBLBBB..
+..............GBBBG...
+.............GG...GG..
+............jJ....JJ..
+.....HHHHH.jJ.....JJ..
+....HHTTTHHjJ....JJ...
+...HHHHHHHHjJ...JJ....
+...HHHHHHMMMJ..JJ.....
+...HHH.HHM.MJJJJ......
+....HHHHHMMMJJJ.......
+.....jJJJJJJJJ........
+....jjJJJJJJJ.........
+....jjJJNNNJJ.........
+....jjJJN.NJJ.........
+.....jJJNNNJ..........
+.....pPPPPPPP.........
+.....ppPP..PPPP.......
+....ppp......PPPP.....
+...sss.........SSS....
+..sss...........SS....
+.KKK............KKK...
+KKK..............KK...
+"""
+TE_ART = """
+......................
+......................
+......................
+.........HHHHH........
+........HHTTTHH.......
+.......HHHHHHHHH......
+.......HHHHHHHMMM.....
+.......HHH.HHHM.M.....
+....jJJJHHHHHHMMM.....
+..jjJJJJJJHHHH...GG...
+.jjJJJJJJJJJJJJJJGGG..
+.jjJJJJJJJJJJJJJJGGG..
+.jjJJJNNNJJ..JJJJGG...
+..jJJJN.NJJ...........
+..jJJJNNNJ............
+..pPPPPPPPP...........
+.ppPPPPPPPPP..........
+.ppp....PPPPP.........
+.ppp.....PPPPP........
+.sss......PPPP........
+.sss.......SSS........
+.sss.......SSS........
+KKKK.......KKKK.......
+KKK.........KKKK......
+"""
+K_ART = """
+...................BB.
+..................BLBB
+......HHHHH.......BBB.
+.....HHTTTHH..........
+....HHHHHHHHH.........
+....HHHHHHHMMM........
+....HHH.HHHM.M........
+.....HHHHHHMMM........
+..GjJJJHHHH...........
+.GjjJJJJJJJJ..........
+......JJJJJJJJJG......
+......JJNNNJ...GG.....
+......JJN.NJ..........
+......JJNNNJ..........
+......pPPPPPP.........
+......ppPPPPPPPPP.....
+......ppp...PPPPPPPSS.
+......ppp........SSSKK
+......sss..........KKK
+......sss.............
+......sss.............
+.....KKKK.............
+....KKKK..............
+......................
+"""
+DEF_ART = """
+......................
+......................
+.......HHHHH..........
+......HHTTTHH.........
+.....HHHHHHHHH........
+....MMMHHHHHHH........
+....M.MHHH.HHH........
+....MMMHHHHHH.........
+.GG....HHHHJJJJ.......
+GGGJJJJJJJJJJJJj......
+.GG.JJJJJJJJJJJJjj....
+......JJNNNJJJ..jjj...
+......JJN.NJJJ...GG...
+.......JNNNJJ.........
+.......PPPPPPp........
+......PPPPPPPpp.......
+.....PPPP...ppppp.....
+....PPPP.....pppp.....
+....SSS.......sss.....
+....SSS.......sss.....
+....SSS.......sss.....
+...KKKK.......KKKK....
+......................
+......................
+"""
+PLAYER = {"QB": QB_ART, "RB": RB_ART, "WR": WR_ART, "TE": TE_ART, "K": K_ART, "DEF": DEF_ART}
+
+# kind -> [pill word, short pill word, colour, icon]
 KIND = {
     "OUT": ["OUT", "OUT", C_OUT, "CROSS"],
     "IR": ["INJURED RESERVE", "IR", C_OUT, "CROSS"],
@@ -390,6 +616,26 @@ def status_kind(status):
         return "SUSPENDED"
     return ""
 
+def team_in_text(raw):
+    """RotoWire names the player's club as a possessive - 'in the Chiefs'
+    31-10 win over the Broncos' - so the earliest possessive wins, then the
+    earliest 'the <nickname>'. Requiring the possessive or 'the' keeps
+    'Bears watching' and 'Jalen Ramsey' from reading as clubs. No club named
+    means the NFL shield, never a guess."""
+    t = norm(raw)
+    for form in ["'", "the"]:
+        best = ""
+        at = -1
+        for nick in NICK_TEAM:
+            key = " " + nick + "'" if form == "'" else " the " + nick + " "
+            i = t.find(key)
+            if i >= 0 and (at < 0 or i < at):
+                best = NICK_TEAM[nick]
+                at = i
+        if best != "":
+            return best
+    return ""
+
 # ------------------------------------------------------------- text tools
 KEEP = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,-:;/&+%#!?()$@"
 
@@ -496,7 +742,9 @@ def name_forms(full, abbreviate):
     return [full, parts[0][:1] + ". " + last, last, surname]
 
 def pick_name(c, forms, maxw, allow_big):
-    order = [[0, "10x16"], [1, "10x16"]] if allow_big else []
+    """The biggest face first: in a 108 px zone the last name alone in 10x16
+    reads further than the full name in 9x12."""
+    order = [[0, "10x16"], [1, "10x16"], [2, "10x16"]] if allow_big else []
     order = order + [[0, "9x12"], [1, "9x12"], [2, "9x12"], [0, "8x10"], [1, "8x10"], [2, "8x10"],
                      [0, "6x8"], [1, "6x8"], [2, "6x8"], [2, "5x7"], [2, "4x5"]]
     for o in order:
@@ -504,17 +752,12 @@ def pick_name(c, forms, maxw, allow_big):
             return [forms[o[0]], o[1]]
     return [clip(c, forms[2], "4x5", maxw), "4x5"]
 
-def pick_last(c, forms, maxw):
-    return fit(c, forms[2], ["9x12", "8x10", "6x8", "5x7", "4x5", "picopixel"], maxw)
-
-def strip_subject(head, surname, keep_paren):
+def strip_subject(head, surname):
     """ESPN blurbs open with the surname that is already on the panel. Drop
-    it - but on the scroll panel keep 'KELCE (ANKLE) WAS..', where the
-    parenthetical needs its subject to read."""
-    if surname == "":
+    it - but keep 'KELCE (ANKLE) WAS..', where the parenthetical needs its
+    subject to read."""
+    if surname == "" or head.startswith(surname + " ("):
         return head
-    if head.startswith(surname + " ("):
-        return head if keep_paren else head[len(surname) + 1:]
     if head.startswith(surname + " "):
         return head[len(surname) + 1:]
     return head
@@ -549,7 +792,7 @@ def icon(c, name, color, x, y, scale, big = False):
     c.sprite(icon_art(name, big), x, y, legend = leg, scale = scale)
 
 def icon_centered(c, name, color, cx, cy):
-    """The scroll hero: big art at 2x, centred on (cx, cy)."""
+    """Big art at 2x, centred on (cx, cy)."""
     d = icon_dims(name, True)
     icon(c, name, color, cx - d[0], cy - d[1], 2, True)
 
@@ -695,8 +938,11 @@ def parse_rotowire(body):
             k2 = classify(desc)
             if k2 != "NEWS":
                 kind = k2
+        team = team_in_text(desc)
+        if team == "":
+            team = team_in_text(head)
         items.append({"name": clean(name), "head": clean(head), "kind": kind, "pos": "",
-                      "team": "", "mins": parse_rfc822(tag_text(chunk, "pubDate"))})
+                      "team": team, "mins": parse_rfc822(tag_text(chunk, "pubDate"))})
     return items
 
 def trim_tail(s):
@@ -765,17 +1011,15 @@ def fetch_news(ctx):
         t = TEAMS[follow]
         r = http.get(ESPN_TEAM_FEED, params = {"team": t[0]}, headers = HEADERS, ttl_seconds = NEWS_TTL)
         if r["status_code"] == 0:
-            return {"ok": False, "head": ["ESPN OFFLINE", "OFFLINE"], "sub": ["RETRY IN 10 MIN", "RETRY SOON"]}
+            return {"ok": False, "head": "ESPN OFFLINE", "sub": "RETRY IN 10 MIN"}
         if r["status_code"] != 200 or type(r["json"]) != "dict":
-            return {"ok": False, "head": ["ESPN FEED ERROR", "FEED ERROR"],
-                    "sub": ["HTTP " + str(r["status_code"]) + " - RETRY SOON", "HTTP " + str(r["status_code"])]}
+            return {"ok": False, "head": "ESPN FEED ERROR", "sub": "HTTP " + str(r["status_code"]) + " - RETRY SOON"}
         return {"ok": True, "items": parse_espn(r["json"], t[1]), "scope": t[1]}
     r = http.get(ROTOWIRE, params = {"sport": "NFL"}, headers = HEADERS, ttl_seconds = NEWS_TTL)
     if r["status_code"] == 0:
-        return {"ok": False, "head": ["NEWS FEED OFFLINE", "OFFLINE"], "sub": ["RETRY IN 10 MIN", "RETRY SOON"]}
+        return {"ok": False, "head": "NEWS FEED OFFLINE", "sub": "RETRY IN 10 MIN"}
     if r["status_code"] != 200:
-        return {"ok": False, "head": ["NEWS FEED ERROR", "FEED ERROR"],
-                "sub": ["HTTP " + str(r["status_code"]) + " - RETRY SOON", "HTTP " + str(r["status_code"])]}
+        return {"ok": False, "head": "NEWS FEED ERROR", "sub": "HTTP " + str(r["status_code"]) + " - RETRY SOON"}
     return {"ok": True, "items": parse_rotowire(r["body"]), "scope": "NFL"}
 
 def fetch_wire(ctx):
@@ -789,10 +1033,9 @@ def fetch_wire(ctx):
                   params = {"lookback_hours": "24", "limit": "25"}, headers = HEADERS,
                   ttl_seconds = TREND_TTL)
     if tr["status_code"] == 0:
-        return dict(base, ok = False, head = ["SLEEPER OFFLINE", "OFFLINE"], sub = ["RETRY IN 30 MIN", "RETRY SOON"])
+        return dict(base, ok = False, head = "SLEEPER OFFLINE", sub = "RETRY IN 30 MIN")
     if tr["status_code"] != 200 or type(tr["json"]) != "list":
-        return dict(base, ok = False, head = ["SLEEPER ERROR", "FEED ERROR"],
-                    sub = ["HTTP " + str(tr["status_code"]) + " - RETRY SOON", "HTTP " + str(tr["status_code"])])
+        return dict(base, ok = False, head = "SLEEPER ERROR", sub = "HTTP " + str(tr["status_code"]) + " - RETRY SOON")
 
     # Week and owned % are garnish: a failure costs the numbers, not the page.
     week = 0
@@ -848,71 +1091,90 @@ def fetch_wire(ctx):
     return dict(base, ok = True, players = players, week = week)
 
 # ------------------------------------------------------------ shared chrome
-def chip_row(c, word, fill, right_limit, show_word):
-    """Football + FANTASY + the pill, never past right_limit. The word is
-    decided once per rotation by the caller, so it does not blink in and
-    out between frames; the pill never moves."""
-    icon(c, "BALL", "", 10, 0, 1)
-    x = 24
-    w = pill_w(c, word)
-    if show_word and x + 33 + 4 + w - 1 <= right_limit:
-        c.text("FANTASY", x, 1, font = "4x5", color = INK)
-        x += 33 + 4
-    if x + w - 1 <= right_limit:
-        pill(c, word, fill, x, 0)
+def team_mark(c, team):
+    """The club's 40 x 24 logo at x 6..45 on black, closed off at x 48..49 by
+    a bar in its accent and jersey colours. A club the feed does not name (or
+    a free agent) gets the NFL shield and a slate bar."""
+    st = TEAM_STYLE.get(team, None)
+    c.image((team if st != None else "NFL") + ".png", LOGO_X, LOGO_Y)
+    c.rect(BAR_X, 0, BAR_X, 31, fill = st[0] if st != None else "#3A4356")
+    c.rect(BAR_X + 1, 0, BAR_X + 1, 31, fill = st[1] if st != None else DIM)
 
-def meta_right(c, parts, pos, draw):
-    """The chip row's right side, laid out from x 181 leftward: 4x5 text
-    parts, then an optional position pill. Returns the free x to the left.
-    With draw=False it only measures, so a caller can plan the left side."""
-    x = 181
+def position_zone(c, pos, team):
+    """x 164..185: the position pill in the chip row, the player under it."""
+    col = POS_COLOR.get(pos, "#B0BCCB")
+    pw = pill_w(c, pos)
+    pill(c, pos, col, POS_CX - pw // 2, 0)
+    if pos not in PLAYER:
+        return
+    st = TEAM_STYLE.get(team, None)
+    jersey = st[1] if st != None else col
+    helmet = st[2] if st != None else "#D9DEE8"
+    pants = st[3] if st != None else "#D9DEE8"
+    stripe = col
+    if st != None:
+        # The first club colour that shows on the helmet: KC's red helmet
+        # takes the gold accent, Green Bay's gold helmet the white.
+        for s in [st[0], st[3], WHITE]:
+            if s != helmet:
+                stripe = s
+                break
+    leg = {"H": helmet, "T": stripe, "M": "#9AA3B2", "J": jersey, "j": color.dim(jersey, 60),
+           "N": WHITE, "G": WHITE, "P": pants, "p": color.dim(pants, 60), "S": jersey,
+           "s": color.dim(jersey, 60), "K": "#8A94A8", "B": "#A0522D", "L": "#FFFFFF"}
+    c.sprite(PLAYER[pos], POS_X, 8, legend = leg)
+
+def meta_right(c, parts, right, draw = True):
+    """The chip row's right side, 4x5 parts laid out leftward from `right`.
+    Returns the last x the left side may use. With draw=False it only
+    measures, so a caller can plan the left side first."""
+    x = right
     for part in parts:
         if part[0] == "":
             continue
         if draw:
             c.text(part[0], x, 1, font = "4x5", color = part[1], align = "right")
         x = x - c.text_width(part[0], "4x5") - 5
-    if pos != "":
-        pw = pill_w(c, pos)
-        if draw:
-            pill(c, pos, POS_COLOR.get(pos, "#B0BCCB"), x - pw + 1, 0)
-        x = x - pw - 3
     return x
 
-def news_meta(c, it, label, n, now_m, draw):
-    age = ago(now_m - it["mins"]) + " AGO" if it["mins"] != None else ""
-    return meta_right(c, [[str(label) + "/" + str(n), DIM], [age, DIM], [it["team"], INK]], it["pos"], draw)
+def chip_row(c, word, short, fill, icon_name, metas, right):
+    """The chip row from x 53 to `right`: the kind's icon and pill on the
+    left, `metas` right-aligned. The richest row that fits wins - the long
+    pill word before anything else, then as many metas as fit (they are shed
+    from the end), then the icon."""
+    icons = [icon_name, ""] if icon_name != "" else [""]
+    for w in [word, short]:
+        for keep in range(len(metas), -1, -1):
+            x = meta_right(c, metas[:keep], right, False)
+            for ic in icons:
+                d = icon_dims(ic, False) if ic != "" else [0, 0]
+                left = TX + (d[0] + 3 if ic != "" else 0)
+                if left + pill_w(c, w) - 1 <= x:
+                    meta_right(c, metas[:keep], right)
+                    if ic != "":
+                        icon(c, ic, fill, TX, 0 if d[1] >= 7 else 1, 1)
+                    pill(c, w, fill, left, 0)
+                    return
+    pill(c, short, fill, TX, 0)
 
 def fail_screen(c, d):
     c.fill("black")
-    wide = c.width >= 128
-    if wide:
-        rail(c, OFFLINE)
-        icon(c, "BALL", "", 10, 1, 1)
-    else:
-        icon(c, "BALL", "", 0, 0, 1)
-    maxw = 172 if wide else c.width - 2
-    hf = fit(c, d["head"][0 if wide else 1], ["5x7", "4x5"], maxw)
+    rail(c, OFFLINE)
+    icon(c, "BALL", "", 10, 1, 1)
+    hf = fit(c, d["head"], ["5x7", "4x5"], 172)
     c.text(hf[1], c.width // 2, 11, font = hf[0], color = "amber", align = "center")
-    sf = fit(c, d["sub"][0 if wide else 1], ["4x5", "picopixel"], maxw)
+    sf = fit(c, d["sub"], ["4x5", "picopixel"], 172)
     c.text(sf[1], c.width // 2, 23, font = sf[0], color = DIM, align = "center")
 
-def quiet_screen(c, head, sub, head_n, sub_n):
+def quiet_screen(c, head, sub):
     """Nothing to show is an answer, not an error: green, and calm."""
     c.fill("black")
-    if c.width >= 128:
-        rail(c, GOOD)
-        icon_centered(c, "BALL", "", 21, 17)
-        hf = fit(c, head, ["6x8", "5x7", "4x5"], 145)
-        c.text(hf[1], 108, 9, font = hf[0], color = GOOD, align = "center")
-        sf = fit(c, sub, ["4x5", "picopixel"], 145)
-        c.text(sf[1], 108, 21, font = sf[0], color = DIM, align = "center")
-    else:
-        icon(c, "BALL", "", 0, 0, 1)
-        hf = fit(c, head_n, ["5x7", "4x5"], 62)
-        c.text(hf[1], 32, 11, font = hf[0], color = GOOD, align = "center")
-        sf = fit(c, sub_n, ["4x5", "picopixel"], 62)
-        c.text(sf[1], 32, 23, font = sf[0], color = DIM, align = "center")
+    rail(c, GOOD)
+    icon_centered(c, "BALL", "", 21, 17)
+    hf = fit(c, head, ["6x8", "5x7", "4x5"], 145)
+    c.text(hf[1], 108, 9, font = hf[0], color = GOOD, align = "center")
+    sf = fit(c, sub, ["4x5", "picopixel"], 145)
+    c.text(sf[1], 108, 21, font = sf[0], color = DIM, align = "center")
 
 # --------------------------------------------------------------- page: news
 def news(c, ctx):
@@ -923,83 +1185,49 @@ def news(c, ctx):
     items = d["items"]
     if len(items) == 0:
         where = "FOR " + d["scope"] if d["scope"] != "NFL" else "RIGHT NOW"
-        quiet_screen(c, "ALL QUIET", "NO NEW PLAYER NEWS " + where, "ALL QUIET", "NO NEWS YET")
+        quiet_screen(c, "ALL QUIET", "NO NEW PLAYER NEWS " + where)
         return
     n = len(items)
     now_m = ctx.now.unix // 60
     idx = now_m % n
     c.fill("black")
-    if c.width < 128:
-        news_narrow(c, items[idx], now_m)
-        return
-    # FANTASY shows on every frame of the rotation or on none of them.
-    show_word = True
-    for it in items:
-        rx = news_meta(c, it, n, n, now_m, False)
-        k = KIND[it["kind"]]
-        word = k[0] if 24 + pill_w(c, k[0]) - 1 <= rx else k[1]
-        if 24 + 37 + pill_w(c, word) - 1 > rx:
-            show_word = False
-    news_wide(c, items[idx], idx, n, now_m, show_word)
-
-def news_wide(c, it, idx, n, now_m, show_word):
+    it = items[idx]
     k = KIND[it["kind"]]
-    rail(c, k[2])
-    x = news_meta(c, it, idx + 1, n, now_m, True)
-    chip_row(c, k[0] if 24 + pill_w(c, k[0]) - 1 <= x else k[1], k[2], x, show_word)
+    has_pos = it["pos"] in PLAYER
 
-    # The kind's icon at 2x in the left zone (x 10..31), centred on y 19.
-    icon_centered(c, k[3], k[2], 21, 19)
+    team_mark(c, it["team"])
+    # The age sits rightmost; the counter beside it is the first thing shed.
+    metas = [[str(idx + 1) + "/" + str(n), DIM]]
+    if it["mins"] != None:
+        metas = [[ago(now_m - it["mins"]) + " AGO", DIM]] + metas
+    if has_pos:
+        chip_row(c, k[0], k[1], k[2], k[3], metas, TR)
+        position_zone(c, it["pos"], it["team"])
+    else:
+        # RotoWire carries no position, so the kind's icon takes the player's place.
+        chip_row(c, k[0], k[1], k[2], "", metas, EDGE_R)
+        icon_centered(c, k[3], k[2], POS_CX, 20)
 
-    # Text zone x 34..181 (148 px). A headline that fits one line lets the
-    # name use 10x16; a longer one gets two lines under a 9x12-or-smaller
-    # name. "MISERABLE SHOWING IN WEEK 1 LOSS" is exactly 148 px in 4x5,
-    # which is why the zone starts at 34 and not 35.
-    tx, tw = 34, 148
+    # Text zone x 53..160 (108 px). A headline that fits one 5x7 line lets
+    # the name use 10x16; a longer one gets two 4x5 lines under a 9x12-or-
+    # smaller name.
     if it["name"] == "":
-        lines = wrap(c, it["head"], "5x7", tw, 3)
+        lines = wrap(c, it["head"], "5x7", TW, 3)
         for i in range(len(lines)):
-            c.text(lines[i], tx, 9 + i * 8, font = "5x7", color = INK)
+            c.text(lines[i], TX, 9 + i * 8, font = "5x7", color = INK)
         return
     forms = name_forms(it["name"], True)
-    head = strip_subject(it["head"], forms[3], True)
-    one = c.text_width(head, "4x5") <= tw
-    nm = pick_name(c, forms, tw, one)
-    c.text(nm[0], tx, 8, font = nm[1], color = INK)
-    bottom = 8 + INKH[nm[1]] - 1
-    if nm[1] == "10x16" and c.text_width(head, "5x7") <= tw:
-        c.text(head, tx, 25, font = "5x7", color = INK)
+    head = strip_subject(it["head"], forms[3])
+    one = c.text_width(head, "5x7") <= TW
+    nm = pick_name(c, forms, TW, one)
+    c.text(nm[0], TX, 8, font = nm[1], color = INK)
+    if nm[1] == "10x16":
+        c.text(head, TX, 25, font = "5x7", color = INK)
         return
-    start = bottom + 3 if nm[1] == "10x16" else bottom + 2
-    lines = wrap(c, head, "4x5", tw, (27 - start) // 6 + 1)
+    start = 8 + INKH[nm[1]] + 1
+    lines = wrap(c, head, "4x5", TW, (27 - start) // 6 + 1)
     for i in range(len(lines)):
-        c.text(lines[i], tx, start + i * 6, font = "4x5", color = INK)
-
-def news_narrow(c, it, now_m):
-    k = KIND[it["kind"]]
-    # Header y 0..6: the icon at 1x, the short pill, the age on the right.
-    d = icon_dims(k[3], False)
-    icon(c, k[3], k[2], 0, 0 if d[1] >= 7 else 1, 1)
-    age = ago(now_m - it["mins"]) if it["mins"] != None else ""
-    px = d[0] + 2
-    pill(c, k[1], k[2], px, 0)
-    if age != "" and px + pill_w(c, k[1]) - 1 <= 63 - c.text_width(age, "4x5") - 3:
-        c.text(age, 63, 1, font = "4x5", color = DIM, align = "right")
-
-    # The last name as big as it fits, then the headline in 4x5 lines.
-    if it["name"] == "":
-        lines = wrap(c, it["head"], "4x5", 63, 4)
-        for i in range(len(lines)):
-            c.text(lines[i], 0, 8 + i * 6, font = "4x5", color = INK)
-        return
-    forms = name_forms(it["name"], True)
-    nm = pick_last(c, forms, 64)
-    c.text(nm[1], 0, 8, font = nm[0], color = INK)
-    start = 8 + INKH[nm[0]] + 1
-    head = strip_subject(it["head"], forms[3], False)
-    lines = wrap(c, head, "4x5", 63, (27 - start) // 6 + 1)
-    for i in range(len(lines)):
-        c.text(lines[i], 0, start + i * 6, font = "4x5", color = INK if i == 0 else DIM)
+        c.text(lines[i], TX, start + i * 6, font = "4x5", color = INK)
 
 # --------------------------------------------------------------- page: wire
 def wire(c, ctx):
@@ -1010,61 +1238,36 @@ def wire(c, ctx):
     ps = d["players"]
     if len(ps) == 0:
         pos = "" if d["want"] == "ALL" else d["want"] + " "
-        quiet_screen(c, "WIRE IS QUIET", "NO TRENDING " + pos + d["kind"] + " IN THE LAST 24H",
-                     "QUIET", "NO " + pos + d["kind"])
+        quiet_screen(c, "WIRE IS QUIET", "NO TRENDING " + pos + d["kind"] + " IN THE LAST 24H")
         return
     idx = (ctx.now.unix // 60) % len(ps)
+    p = ps[idx]
     c.fill("black")
-    if c.width >= 128:
-        wire_wide(c, d, ps[idx], idx, len(ps))
-    else:
-        wire_narrow(c, d, ps[idx], idx, len(ps))
-
-def wire_wide(c, d, p, idx, n):
     adds = d["kind"] == "ADDS"
-    color = C_BOOM if adds else C_BUST
-    rail(c, color)
-    parts = [[str(idx + 1) + "/" + str(n), DIM]]
-    if d["week"] > 0:
-        parts.append(["WEEK " + str(d["week"]), DIM])
+    color_k = C_BOOM if adds else C_BUST
+
+    team_mark(c, p["team"])
+    position_zone(c, p["pos"], p["team"])
+
+    # The counter, then the filter, then the week; shed from the end.
+    metas = [[str(idx + 1) + "/" + str(len(ps)), DIM]]
     if d["want"] != "ALL":
-        parts.append([d["want"] + " ONLY", INK])
-    x = meta_right(c, parts, "", True)
-    chip_row(c, "WAIVER " + d["kind"], color, x, True)
+        metas.append([d["want"] + " ONLY", INK])
+    if d["week"] > 0:
+        metas.append(["WEEK " + str(d["week"]), DIM])
+    chip_row(c, "WAIVER " + d["kind"], d["kind"], color_k, "FIRE" if adds else "ICE", metas, TR)
 
-    icon_centered(c, "FIRE" if adds else "ICE", color, 21, 17)
+    # Name hero in y 8..22, centred on that band when a smaller face wins.
+    nm = pick_name(c, p["forms"], TW, True)
+    c.text(nm[0], TX, 8 + (15 - INKH[nm[1]]) // 2, font = nm[1], color = INK)
 
-    # Name hero in y 8..22, centred when a smaller face wins.
-    tx, tw = 34, 148
-    nm = pick_name(c, p["forms"], tw, True)
-    c.text(nm[0], tx, 8 + (15 - INKH[nm[1]]) // 2, font = nm[1], color = INK)
-
-    # Bottom row y 25..31: position pill, team, the count, owned % right.
-    # Worst case "[DEF] WSH +955K ADDS" ends at x 122 and "100% OWNED" is
-    # 43 px, so it starts at x 139 - the two never meet.
-    pw = pill(c, p["pos"], POS_COLOR.get(p["pos"], "#B0BCCB"), tx, 25)
-    bx = tx + pw + 3
-    c.text(p["team"], bx, 26, font = "4x5", color = INK)
-    bx += c.text_width(p["team"], "4x5") + 5
+    # Bottom row y 25..31: the count left, owned % right, in the longest
+    # wording that leaves 4 px between them - "% OWNED", then "% OWN".
     cnt = ("+" if adds else "") + compact(p["count"]) + " " + d["kind"]
-    c.text(cnt, bx, 26, font = "4x5", color = color)
-    bx += c.text_width(cnt, "4x5")
+    c.text(cnt, TX, 26, font = "4x5", color = color_k)
     if p["pct"] >= 0:
-        ro = str(p["pct"]) + "% OWNED"
-        if 181 - c.text_width(ro, "4x5") + 1 > bx + 4:
-            c.text(ro, 181, 26, font = "4x5", color = DIM, align = "right")
-
-def wire_narrow(c, d, p, idx, n):
-    adds = d["kind"] == "ADDS"
-    color = C_BOOM if adds else C_BUST
-    icon(c, "FIRE" if adds else "ICE", color, 0, 0, 1)
-    pill(c, d["kind"], color, 9, 0)
-    c.text(str(idx + 1) + "/" + str(n), 63, 1, font = "4x5", color = DIM, align = "right")
-
-    nm = pick_last(c, p["forms"], 64)
-    c.text(nm[1], 0, 9 + (12 - INKH[nm[0]]) // 2, font = nm[0], color = INK)
-
-    pw = pill(c, p["pos"], POS_COLOR.get(p["pos"], "#B0BCCB"), 0, 25)
-    c.text(p["team"], pw + 2, 26, font = "4x5", color = INK)
-    cnt = ("+" if adds else "") + compact(p["count"])
-    c.text(cnt, 63, 26, font = "4x5", color = color, align = "right")
+        room = TR - (TX + c.text_width(cnt, "4x5") + 4) + 1
+        for ro in [str(p["pct"]) + "% OWNED", str(p["pct"]) + "% OWN"]:
+            if c.text_width(ro, "4x5") <= room:
+                c.text(ro, TR, 26, font = "4x5", color = DIM, align = "right")
+                break

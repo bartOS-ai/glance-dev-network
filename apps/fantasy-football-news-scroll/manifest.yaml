@@ -1,9 +1,9 @@
 gdn: 1
 id: fantasy-football-news-scroll
 version: 0.1.0
-name: Fantasy Football News (Scroll)
+name: Fantasy Football News
 author: glance-led-dev
-description: Live NFL player news sorted at a glance - OUT, QUESTIONABLE, CLEARED, SIGNED, BOOM, BUST - plus the waiver wire's hottest adds or drops with rostered percentage. No key needed.
+description: Live NFL player news sorted at a glance - OUT, QUESTIONABLE, CLEARED, SIGNED, BOOM, BUST - with team logos and pixel-art players by position, plus the waiver wire's hottest adds or drops with rostered percentage. No key needed.
 category: Sports
 entry: app.star
 
@@ -15,6 +15,43 @@ height: 32
 refresh: 60
 
 pages: [news, wire]
+
+# Team logos: 40 x 24 pixel art, one per club, named by ESPN abbreviation,
+# plus the NFL shield for news that names no club.
+assets:
+  - ARI.png
+  - ATL.png
+  - BAL.png
+  - BUF.png
+  - CAR.png
+  - CHI.png
+  - CIN.png
+  - CLE.png
+  - DAL.png
+  - DEN.png
+  - DET.png
+  - GB.png
+  - HOU.png
+  - IND.png
+  - JAX.png
+  - KC.png
+  - LV.png
+  - LAC.png
+  - LAR.png
+  - MIA.png
+  - MIN.png
+  - NE.png
+  - NO.png
+  - NYG.png
+  - NYJ.png
+  - PHI.png
+  - PIT.png
+  - SF.png
+  - SEA.png
+  - TB.png
+  - TEN.png
+  - WSH.png
+  - NFL.png
 
 inputs:
   - key: follow
