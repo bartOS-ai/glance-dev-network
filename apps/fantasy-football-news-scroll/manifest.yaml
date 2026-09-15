@@ -12,7 +12,7 @@ height: 32
 # 60 s because each page rotates one story / one player per minute. The
 # feeds themselves are cached far longer: news 600 s, trending 1800 s,
 # player records 6 h.
-refresh: 60
+refresh: 1200
 
 pages: [news, wire]
 
