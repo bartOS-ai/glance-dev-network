@@ -10,7 +10,7 @@ entry: app.star
 width: 192
 height: 32
 # Metrolink's tracker updates every 60 seconds; the fetch ttl matches.
-refresh: 60
+refresh: 300
 
 pages: [next_train, upcoming, lines]
 
