@@ -12,7 +12,7 @@
 # just the handle, because Facebook resolves an unknown vanity name to
 # whatever page it thinks you meant - a viewer must be able to see whose
 # count this is. The hero is the count with commas in the largest font
-# that fits; FOLLOWERS in blue beneath it, the handle in dim on the right
+# that fits; FOLLOWERS in blue beneath it, the page ID in dim on the right
 # so the name and the address are both present. The 64 panel keeps the
 # tile and name in the top rows and gives the rest to the number.
 #
@@ -205,9 +205,11 @@ def page_name(body):
 def fetch_data(ctx):
     page = clean_page(ctx.inputs.get("page", ""))
     if page == "":
-        return {"ok": False, "head": ["SET A PAGE NAME", "NO PAGE SET"],
+        return {"ok": False, "head": ["SET A PAGE ID", "NO PAGE ID"],
                 "sub": ["IN THIS APP'S SETTINGS", "ADD ONE"]}
-    at = "@" + page.upper()
+    # The setting asks for the numeric page ID, shown as "ID 54971236771";
+    # a name from the URL (nasa) still works and shows as "@NASA".
+    at = "ID " + page if page.isdigit() else "@" + page.upper()
     params = {"href": "https://www.facebook.com/" + page, "tabs": "", "width": "340",
               "small_header": "false", "hide_cover": "true", "show_facepile": "false"}
     r = http.get(PLUGIN, params = params, headers = HEADERS, ttl_seconds = TTL)
@@ -224,7 +226,7 @@ def fetch_data(ctx):
         # The plugin renders an empty frame for a page it cannot show:
         # wrong name, an unpublished page, or a personal profile.
         return {"ok": False, "head": [at + " NOT FOUND", "NOT FOUND"],
-                "sub": ["USE THE NAME FROM THE PAGE URL", "CHECK NAME"]}
+                "sub": ["CHECK THE PAGE ID", "CHECK ID"]}
     name = page_name(body)
     if name == "":
         name = page
@@ -294,8 +296,8 @@ def followers_wide(c, d):
     f = "16x20" if c.text_width(exact, "16x20") <= x1 - x0 + 1 else "10x16"
     hero_count(c, d["followers"], x0, 7 if f == "16x20" else 9, x1 - x0 + 1, [f, "7x12"])
 
-    # Label band y 27..31: FOLLOWERS in blue, the handle dim on the right.
-    # "FOLLOWERS" is 45 px, so the handle gets what is left past a 6 px gap.
+    # Label band y 27..31: FOLLOWERS in blue, the page ID dim on the right.
+    # "FOLLOWERS" is 45 px, so the ID gets what is left past a 6 px gap.
     c.text("FOLLOWERS", x0, 27, font = "4x5", color = FB_BLUE)
     c.text(clip(c, d["at"], "4x5", x1 - (x0 + 45 + 6) + 1), x1, 27, font = "4x5",
            color = DIM, align = "right")
@@ -309,6 +311,6 @@ def followers_narrow(c, d):
     # else compact in 10x16 ("28.7M" 54 px).
     hero_count(c, d["followers"], 1, 10, 62, ["10x16", "7x12"])
 
-    # Footer y 27..31: the label. The handle is left off here - the 15 px
-    # beside FOLLOWERS only ever held "@NA", and the name is in the header.
+    # Footer y 27..31: the label. The page ID is left off here - the 15 px
+    # beside FOLLOWERS only ever held "ID 5", and the name is in the header.
     c.text("FOLLOWERS", 0, 27, font = "4x5", color = FB_BLUE)

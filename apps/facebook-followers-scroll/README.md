@@ -1,13 +1,13 @@
 # Facebook Page Followers
 
 A live follower counter for one public Facebook Page: the exact count, the
-page's name with its verified badge, and the handle. No API key or login.
+page's name with its verified badge, and the page ID. No API key or login.
 
 ## Settings
 
 | setting | what it is |
 |---|---|
-| **Facebook Page** | The name from the page's URL. For `https://www.facebook.com/nasa` enter `nasa`. A numeric page ID (`54971236771`) works too. Pasting the whole URL also works; the app strips the site part. |
+| **Facebook Page ID** | The Page's numeric ID, shown on the Page's About tab under Page transparency. `54971236771` is NASA. The name from the page's URL (`nasa` for `https://www.facebook.com/nasa`) works too, and pasting the whole URL also works; the app strips the site part. |
 
 ## Notes
 

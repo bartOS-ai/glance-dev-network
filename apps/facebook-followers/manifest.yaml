@@ -18,6 +18,6 @@ inputs:
   - key: page
     type: string
     app_input_type: free-text
-    label: Facebook Page
-    default: "nasa"
-    help: The name from the page's URL. For https://www.facebook.com/nasa enter nasa. A numeric page ID works too. Public Pages only, not personal profiles.
+    label: Facebook Page ID
+    default: "54971236771"
+    help: The Page's numeric ID, shown on the Page's About tab under Page transparency. 54971236771 is NASA. The name from the page's URL (nasa) works too. Public Pages only, not personal profiles.
