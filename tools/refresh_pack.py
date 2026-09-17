@@ -100,6 +100,48 @@ def tmdb_get(path, key, **params):
     return r.json()
 
 
+def _us_cert(d):
+    """The US certificate from an appended release_dates payload.
+
+    TMDB returns a release list per country, each entry typed: 1 premiere,
+    2 limited theatrical, 3 theatrical, 4 digital, 5 physical, 6 TV. The
+    theatrical entry carries the MPAA rating, so prefer type 3 and fall back to
+    the first non-empty. Films with no US release simply have none, which is a
+    blank field rather than an error."""
+    for country in d.get("release_dates", {}).get("results", []):
+        if country.get("iso_3166_1") != "US":
+            continue
+        fallback = ""
+        for rel in country.get("release_dates", []):
+            cert = (rel.get("certification") or "").strip()
+            if not cert:
+                continue
+            if rel.get("type") == 3:
+                return cert
+            if not fallback:
+                fallback = cert
+        return fallback
+    return ""
+
+
+def _surname(name):
+    """The panel shows a director by surname, but the last space-separated token
+    is not always it: Gus Van Sant becomes SANT, Brian De Palma becomes PALMA.
+    Nobiliary particles are pulled back in so the name still reads as itself."""
+    if not name:
+        return ""
+    parts = name.strip().split()
+    if not parts:
+        return ""
+    PARTICLES = {"van", "von", "de", "del", "della", "di", "da", "dos", "du",
+                 "la", "le", "ter", "ten", "den", "der", "st", "st.", "saint",
+                 "mac", "mc", "o'"}
+    i = len(parts) - 1
+    while i > 0 and parts[i - 1].lower().strip(".") in PARTICLES:
+        i -= 1
+    return " ".join(parts[i:]).upper()
+
+
 def _details(d):
     """Shape a TMDB /movie payload into our canon fields."""
     director = ""
@@ -111,14 +153,20 @@ def _details(d):
         "title": (d.get("title") or "").upper(),
         "year": (d.get("release_date") or "")[:4],
         "runtime": str(d.get("runtime") or "").strip(),
-        "director": director.upper().split(" ")[-1] if director else "",
+        "director": _surname(director),
+        "cert": _us_cert(d),
         "poster_path": d.get("poster_path"),
     }
 
 
 def tmdb_details(mid, key):
-    """Runtime + director + poster for a known TMDB movie id (from the RSS)."""
-    return _details(tmdb_get("/movie/%s" % mid, key, append_to_response="credits"))
+    """Runtime + director + certificate + poster for a known TMDB movie id.
+
+    credits and release_dates are appended to the details call rather than
+    fetched separately: three requests per film against a render budget of
+    eight would not fit, and even offline it triples the run time."""
+    return _details(tmdb_get("/movie/%s" % mid, key,
+                             append_to_response="credits,release_dates"))
 
 
 def tmdb_lookup(title, year, key):
@@ -338,9 +386,10 @@ def render_pack(canon, order):
         e = canon[slug]
         t, y, rt, d, poster = e[0], e[1], e[2], e[3], e[4]
         rating = e[5] if len(e) > 5 else 0  # tolerate hand-edited 5-field entries
+        cert = e[6] if len(e) > 6 else ""   # and pre-certificate 6-field ones
         lines.append(
-            '    %s: [%s, %s, %s, %s, %s, %d],'
-            % (_q(slug), _q(t), _q(y), _q(rt), _q(d), _q(poster), rating)
+            '    %s: [%s, %s, %s, %s, %s, %d, %s],'
+            % (_q(slug), _q(t), _q(y), _q(rt), _q(d), _q(poster), rating, _q(cert))
         )
     lines.append("}")
     lines.append("CANON_ORDER = [")
@@ -393,6 +442,62 @@ def update_manifest_assets(path, posters):
     return pat.sub(block, text, count=1), text
 
 
+def backfill(canon, order, key, limit, force, dry):
+    """Fill missing runtime / director / certificate on films already packed.
+
+    The poster path is keyless (Letterboxd OGP), so a pack baked without a TMDB
+    key ends up with art but no metadata. This repairs those rows in place: it
+    downloads nothing, reorders nothing, and writes only fields that are empty,
+    so hand-corrected values survive. Two requests per film (search, then
+    details) because the canon stores no TMDB ids.
+    """
+    todo = []
+    for slug in order:
+        e = canon[slug]
+        runtime = e[2] if len(e) > 2 else ""
+        director = e[3] if len(e) > 3 else ""
+        cert = e[6] if len(e) > 6 else ""
+        if force or not runtime or not director or not cert:
+            todo.append(slug)
+    if limit:
+        todo = todo[:limit]
+
+    print("%d film(s) need metadata%s" % (len(todo), " (forced)" if force else ""))
+    filled, failed = 0, []
+    for i, slug in enumerate(todo):
+        e = list(canon[slug]) + [""] * (7 - len(canon[slug]))
+        title, year = e[0], e[1]
+        try:
+            d = tmdb_lookup(title, year, key)
+        except TmdbError as ex:
+            failed.append(title)
+            print("  warn  %-38s %s" % (title[:38], ex))
+            continue
+        if not d:
+            failed.append(title)
+            print("  MISS  %-38s no TMDB match" % title[:38])
+            continue
+        before = (e[2], e[3], e[6])
+        if force or not e[2]:
+            e[2] = d["runtime"]
+        if force or not e[3]:
+            e[3] = d["director"]
+        if force or not e[6]:
+            e[6] = d["cert"]
+        if (e[2], e[3], e[6]) != before:
+            filled += 1
+            print("  %3d/%d  %-34s %s | %s | %s"
+                  % (i + 1, len(todo), title[:34], e[2] or "-", e[3] or "-", e[6] or "-"))
+        if not dry:
+            canon[slug] = e
+        time.sleep(0.05)   # stay well inside TMDB's rate limit
+
+    print("\nFilled %d film(s)%s" % (filled, "; %d unmatched" % len(failed) if failed else ""))
+    if failed:
+        print("Unmatched: %s" % ", ".join(failed[:12]) + (" ..." if len(failed) > 12 else ""))
+    return filled
+
+
 # ---------------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser(description="Refresh a marquee poster pack from TMDB.")
@@ -405,6 +510,15 @@ def main():
     ap.add_argument("--replace", action="store_true")
     ap.add_argument("--no-overwrite", action="store_true")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--backfill", action="store_true",
+                    help="fill missing runtime/director/certificate on films "
+                         "already in the canon; downloads no posters")
+    ap.add_argument("--drop", nargs="+", metavar="SLUG",
+                    help="remove films from the canon by slug (duplicates, bad "
+                         "matches). Rewrites the pack and the manifest assets; "
+                         "leaves the poster files on disk to delete by hand.")
+    ap.add_argument("--backfill-force", action="store_true",
+                    help="with --backfill, refetch even fields already set")
     args = ap.parse_args()
 
     # TMDB is OPTIONAL: with --user, posters + films come from the Letterboxd RSS
@@ -421,6 +535,54 @@ def main():
 
     star = open(star_path).read()
     canon, order, _by, _posters = load_pack(star)
+
+    if args.drop:
+        gone, missing = [], []
+        for slug in args.drop:
+            if slug in canon:
+                gone.append((slug, canon[slug][0], canon[slug][4]))
+                del canon[slug]
+            else:
+                missing.append(slug)
+        if missing:
+            print("not in the canon, ignored: %s" % ", ".join(missing))
+        if not gone:
+            sys.exit("error: nothing to drop.")
+        order = [s for s in order if s in canon]
+        for slug, title, poster in gone:
+            print("  dropped  %-28s (%s)" % (title, slug))
+        if args.dry_run:
+            print("\n[dry-run] canon would be %d film(s); nothing written" % len(order))
+            return
+        star = splice(star, PACK_BEGIN, PACK_END, render_pack(canon, order))
+        open(star_path, "w").write(star)
+        new_manifest, _old = update_manifest_assets(
+            manifest_path, [canon[s][4] for s in order])
+        open(manifest_path, "w").write(new_manifest)
+        print("\nCanon is now %d film(s)." % len(order))
+        print("Orphaned poster file(s) left on disk, safe to delete:")
+        for _s, _t, poster in gone:
+            print("    %s" % os.path.join(app_dir, poster))
+        print("\nNext: gdn validate %s" % app_dir)
+        return
+
+    if args.backfill or args.backfill_force:
+        if not key:
+            sys.exit("error: --backfill needs a TMDB key. "
+                     "export TMDB_API_KEY=... (free at themoviedb.org/settings/api)")
+        n = backfill(canon, order, key, args.limit if args.limit else 0,
+                     args.backfill_force, args.dry_run)
+        if args.dry_run:
+            print("[dry-run] nothing written")
+            return
+        if not n:
+            print("Nothing to write.")
+            return
+        star = splice(star, PACK_BEGIN, PACK_END, render_pack(canon, order))
+        open(star_path, "w").write(star)
+        print("Wrote %s. Next: gdn validate %s" % (star_path, app_dir))
+        return
+
     if args.replace:
         canon, order = {}, []
 
@@ -480,6 +642,7 @@ def main():
         poster_url = t.get("poster_url", "")
 
         # Metadata (and, when there's no diary poster, the image) from TMDB.
+        d = None
         if key:
             try:
                 d = tmdb_details(t["tmdb_id"], key) if t.get("tmdb_id") \
@@ -520,7 +683,10 @@ def main():
         rating = t.get("rating", 0)
         if not rating and prior and len(prior) > 5:
             rating = prior[5]
-        entry = [title, year, runtime, director, poster_file, rating]
+        cert = d["cert"] if (key and d) else ""
+        if not cert and prior and len(prior) > 6:
+            cert = prior[6]
+        entry = [title, year, runtime, director, poster_file, rating, cert]
         (refreshed if slug in canon else added).append(title)
         canon[slug] = entry
         if slug not in processed:
